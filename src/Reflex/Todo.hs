@@ -8,8 +8,8 @@ import qualified Data.Map as Map
 import Reflex
 import Reflex.Dom
 
-insertNew_ :: (Enum k, Ord k) => v -> Map k v -> Map k v
-insertNew_ v m = case Map.maxViewWithKey m of
+insertNew :: (Enum k, Ord k) => v -> Map k v -> Map k v
+insertNew v m = case Map.maxViewWithKey m of
   Nothing -> Map.singleton (toEnum 0) v
   Just ((k, _), _) -> Map.insert (succ k) v m
 
@@ -19,7 +19,7 @@ initialTasks = Map.empty
 main :: IO ()
 main = mainWidget $ do
   input <- taskEntry
-  someTasks <- foldDyn insertNew_ initialTasks input
+  someTasks <- foldDyn insertNew initialTasks input
   el "ul" $ taskList someTasks
   return ()
 
