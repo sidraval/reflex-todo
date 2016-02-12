@@ -1,5 +1,4 @@
 {-# LANGUAGE RecursiveDo, ScopedTypeVariables, FlexibleContexts, TypeFamilies, ConstraintKinds, TemplateHaskell #-}
-module Reflex.Todo where
 
 module Reflex.Todo where
 
@@ -7,6 +6,7 @@ import Prelude hiding (mapM, mapM_, all, sequence)
 
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Foldable
 import Reflex
 import Reflex.Dom
 
@@ -20,13 +20,23 @@ initialTasks = Map.empty
 
 main :: IO ()
 main = mainWidget $ do
-  input <- taskEntry
-  someTasks <- foldDyn insertNew initialTasks input
-  el "ul" $ taskList someTasks
+  rec tasks <- foldDyn ($) initialTasks $ mergeWith (.) [fmap insertNew newTask, listModifyTasks]
+      newTask <- taskEntry
+      listModifyTasks <- taskList tasks
   return ()
 
-taskList :: (MonadWidget t m, Ord k) => Dynamic t (Map k String) -> m (Dynamic t (Map k ()))
-taskList tasks = list tasks $ el "li" . dynText
+taskList :: (MonadWidget t m, Ord k) => Dynamic t (Map k String) -> m (Event t (Map k String -> Map k String))
+taskList tasks = do
+    items <- el "ul" $ list tasks todoItem
+    let itemChange = fmap (foldl' (.) id) . mergeList . map (\(k, v) -> fmap (flip Map.update k) v) . Map.toList
+    itemChangeEvent <- mapDyn itemChange items
+    return $ switch . current $ itemChangeEvent
+
+todoItem :: MonadWidget t m => Dynamic t String -> m (Event t (String -> Maybe String))
+todoItem task = do
+    el "li" $ dynText task
+    removeClicked <- button "remove"
+    return $ fmap (const $ const Nothing) removeClicked
 
 taskEntry :: MonadWidget t m => m (Event t String)
 taskEntry = do
